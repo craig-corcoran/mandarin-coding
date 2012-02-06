@@ -3,6 +3,9 @@ import xlwt
 import sys
 import copy
 
+pos_keys = ['1[ISO]','2[I]','2[F]','3[I]','3[M]','3[F]',
+             '4[I]','4[M]','4[F]']
+
 class Word(object):
 
     '''takes a ColumnDictionary object and stores the word tone, segment and 
@@ -30,7 +33,7 @@ class Word(object):
             self.tone_number = 1
         # Tone 2: rising
         elif (tone_list[1] == 'R'):
-             self.tone_number = 2
+            self.tone_number = 2
         # Tone 3: Fall, Rise
         elif (tone_list[1:4] == 'FRL') | (tone_list[1:3] == 'FL'):
             self.tone_number = 3
@@ -54,6 +57,12 @@ class Word(object):
         self.MWCM_Ttarget = col_dict["MWCM_Ttarget"][row]
         self.MWCM_Tactual = col_dict["MWCM_Tactual"][row]
 
+    def __hash__(self):
+        return hash(self.orthography)
+
+    def __equal__(self, other):
+        return self.orthography == other.orthography
+
 
 class ColumnDictionary(object):
     '''takes the path to a workbook string and creates a dictionary for the 
@@ -74,7 +83,11 @@ class Table(object):
     ''' consists of two dictionaries for sorting by tone and by word. '''
     def __init__(self, session):
         #print 'new table'
+
         self.tone_dict = {}
+        for i in xrange(4):
+            self.tone_dict[i+1] = dict(zip(pos_keys,[(0,0)]*len(pos_keys))) 
+
         self.word_dict = {}
         self.session = session
         
@@ -82,40 +95,42 @@ class Table(object):
     def add_word(self,word, value):
         ''' update the table with the given word '''
         #print 'adding a word to a table'
-        
-        if not self.word_dict.has_key(word.orthography):
-            self.word_dict[word.orthography] = {} # position dictionary
-
-        if not self.tone_dict.has_key(word.tone_number):
-            self.tone_dict[word.tone_number] = {} # position dictionary
-
-        length = word.length # length of the utterance the word appears in
-        if int(length) > 4:
-            length = 4
-        pos_key = str(length)+str(word.position)
-
-        if value < 1e-5: value = 0
-        
-        if not self.word_dict[word.orthography].has_key(pos_key):
-            self.word_dict[word.orthography][pos_key] = (float(value),1)
-        else:
-            pair =  copy.deepcopy(self.word_dict[word.orthography][pos_key])
-            val = float(pair[0])+float(value)
-            if val  < 1e-5: val = 0
-            self.word_dict[word.orthography][pos_key] = (val, int(pair[1])+1)
-
-        if not self.tone_dict[word.tone_number].has_key(pos_key):
-            self.tone_dict[word.tone_number][pos_key] = (float(value),1)
+        if word.tone_number < 5: # ignore tone 5 
             
-        else:
-            pair = copy.deepcopy(self.tone_dict[word.tone_number][pos_key])
-            val = float(pair[0])+float(value)
-            if val  < 1e-5: val = 0
-            self.tone_dict[word.tone_number][pos_key] = (val, int(pair[1])+1)
+            # initialize position dictionary
+            if not self.word_dict.has_key(word.orthography):
+                self.word_dict[word.orthography] = dict(zip(pos_keys,[(0,0)]*len(pos_keys))) 
+    
+            if not self.tone_dict.has_key(word.tone_number):
+                self.tone_dict[word.tone_number] = dict(zip(pos_keys,[(0,0)]*len(pos_keys)))
+    
+            length = word.length # length of the utterance the word appears in
+            if int(length) > 4:
+                length = 4
+            pos_key = str(length)+str(word.position)
+
+            if value < 1e-5: value = 0
+            
+            if not self.word_dict[word.orthography].has_key(pos_key):
+                self.word_dict[word.orthography][pos_key] = (float(value),1)
+            else:
+                pair =  copy.deepcopy(self.word_dict[word.orthography][pos_key])
+                val = float(pair[0])+float(value)
+                if val  < 1e-5: val = 0
+                self.word_dict[word.orthography][pos_key] = (val, int(pair[1])+1)
+
+            if not self.tone_dict[word.tone_number].has_key(pos_key):
+                self.tone_dict[word.tone_number][pos_key] = (float(value),1)
+            
+            else:
+                pair = copy.deepcopy(self.tone_dict[word.tone_number][pos_key])
+                val = float(pair[0])+float(value)
+                if val  < 1e-5: val = 0
+                self.tone_dict[word.tone_number][pos_key] = (val, int(pair[1])+1)
 
 
 def write_table(table, sheet, tl_index, averaging = True, sorting = "tone"):
-    num_tones = len(table.tone_dict.keys())
+    num_tones = 4 #len(table.tone_dict.keys())
     # total number of words across all tones
     
     word_list = table.word_dict.keys()
@@ -132,7 +147,10 @@ def write_table(table, sheet, tl_index, averaging = True, sorting = "tone"):
     sheet.write(tl_index,0,table.session) # write session at top
     # row titles
     sheet.write_merge(tl_index+1,tl_index+2,0,0,'Word')
-    sheet.write(tl_index + num_rows + 3 ,0,'Total')
+    if averaging:
+        sheet.write(tl_index + num_rows + 3 ,0,'Average')
+    else:
+        sheet.write(tl_index + num_rows + 3 ,0,'Total')
     
     #print 'num words: ', num_words
     #print 'num tones: ', num_tones
@@ -142,8 +160,11 @@ def write_table(table, sheet, tl_index, averaging = True, sorting = "tone"):
     sheet.write_merge(tl_index+1,tl_index+1,2,3,'2 Syl.')
     sheet.write_merge(tl_index+1,tl_index+1,4,6,'3 Syl.')
     sheet.write_merge(tl_index+1,tl_index+1,7,9,'>3 Syl.')
-    sheet.write_merge(tl_index+1,tl_index+2,10,10,'Total')
-    
+    if averaging:
+        sheet.write_merge(tl_index+1,tl_index+2,10,10,'Weighted Average')
+    else:
+        sheet.write_merge(tl_index+1,tl_index+2,10,10,'Total')
+
     word_locs = ['Isolation','Initial','Final','Initial','Medial','Final','Initial','Medial','Final']
     for i in range(9):
         sheet.write(tl_index+2,1+i,word_locs[i])
@@ -151,8 +172,7 @@ def write_table(table, sheet, tl_index, averaging = True, sorting = "tone"):
     ########################
     ### Write Table Data ###
     ########################
-    pos_keys = ['1[ISO]','2[I]','2[F]','3[I]','3[M]','3[F]',
-             '4[I]','4[M]','4[F]']
+
     #pos_inds = zip(pos_keys, range(len(pos_keys)))
     col_count = dict(zip(pos_keys,[0]*len(pos_keys)))
     col_total = dict(zip(pos_keys,[0]*len(pos_keys)))
@@ -165,7 +185,8 @@ def write_table(table, sheet, tl_index, averaging = True, sorting = "tone"):
             if t < 4:
                 sheet.write(tl_index + 3 + t, 0, "Tone "+str(t+1))
             else:
-                sheet.write(tl_index + 3 + t, 0, "Other")
+                pass #sheet.write(tl_index + 3 + t, 0, "Other")
+
         elif sorting == "word":
             sheet.write(tl_index + 3 + t, 0, word_list[t])
 
@@ -195,17 +216,17 @@ def write_table(table, sheet, tl_index, averaging = True, sorting = "tone"):
             count = int(count)
 
             # write the value of this word in this position
-            if averaging & (value != 0):
+            if averaging & (count != 0):
                 value = value/count
             sheet.write(tl_index + t + 3, n+1, value) 
             
-            row_count += 1
-            col_count[pk] += 1
+            row_count += count
             row_total += value # accumulate word total
+            col_count[pk] += count
             col_total[pk] += value #  accumulated column (pos) total
 
         # write the row total for the word
-        if averaging:
+        if averaging & (row_count != 0):
             row_total = row_total/row_count
         sheet.write(tl_index + t + 3, len(pos_keys)+1, row_total)
             
@@ -226,7 +247,7 @@ def write_table(table, sheet, tl_index, averaging = True, sorting = "tone"):
     return tl_index + num_rows + 5 
 
 
-def F_tone(use_tone= "target"):
+def FrequencyAnalysis(use_tone= "target", table_sorting = "tone"):
     # to be analysis code
     col_dict = ColumnDictionary('../output/Coding_output_words.xls')
     participant_list = col_dict["Participant"][1:]
@@ -236,12 +257,16 @@ def F_tone(use_tone= "target"):
     curr_participant = None
     wb = xlwt.Workbook()
     tl_index = 0
+    sheet = None
 
     # for all words in all sessions
     for s in xrange(len(session_list)):
-        
+
         # if starting a new session
         if session_list[s] is not curr_sesh:
+
+            if s is not 0: # if not first line
+                tl_index = write_table(curr_table, sheet, tl_index, averaging = False, sorting = table_sorting) # write the old table
             
             # if it is a new participant, make a new sheet
             if participant_list[s] is not curr_participant:
@@ -250,40 +275,61 @@ def F_tone(use_tone= "target"):
                 sheet = wb.add_sheet(curr_participant)
                 tl_index = 0
 
-            if s is not 0: # if not first line
-                tl_index = write_table(curr_table,sheet,tl_index, sorting = "tone") # write the old table
-                curr_table.add_word(Word(col_dict,s,tone=use_tone),1)
-
+            # make new table for new session
             curr_sesh = session_list[s]
             curr_table = Table(curr_sesh)
 
-        else:
-            # add word to accumulating table for this session
-            curr_table.add_word(Word(col_dict,s,tone=use_tone),1)
-    
-    write_table(curr_table,sheet,tl_index, sorting = "tone") # write the old table w/o averaging
-    
-    if use_tone == "target":
-        wb.save('../output/F_ToneTarget.xls')
-    elif (use_tone == "actual") | (use_tone == "production"):
-        wb.save('../output/F_ToneProduction.xls')
+        curr_table.add_word( Word(col_dict,s+1,tone=use_tone), 1) # increase freq count
+        
+        
+    # write the last table
+    write_table(curr_table, sheet, tl_index, averaging = False, sorting = table_sorting) 
+        
+    # write the excel 
+    if table_sorting == "tone":
+        if use_tone == "target":
+            wb.save('../output/F_ToneTarget.xls')
+        elif (use_tone == "actual") | (use_tone == "production"):
+            wb.save('../output/F_ToneProduction.xls')
+
+    if table_sorting == "word":
+            wb.save('../output/F_WordToken.xls')
+
 
 def MWCM(use_tone= "target", measuring="target", table_sorting = "tone"):
+    
+    ''' TODO add words and write tables separately'''
+    
     # to be analysis code
+    #col_dict = ColumnDictionary('../output/Coding_output_words_test.xls')
     col_dict = ColumnDictionary('../output/Coding_output_words.xls')
     participant_list = col_dict["Participant"][1:]
     session_list = col_dict["Session"][1:]
     curr_sesh = None
     curr_table = None
     curr_participant = None
+    sheet_total=sheet_average=None
     wb = xlwt.Workbook()
     tl_index = 0
     tl_index_avg = 0
+
     # for all words in all sessions
     for s in xrange(len(session_list)):
         
         # if starting a new session
         if session_list[s] is not curr_sesh:
+
+            if s is not 0: # if not first line
+
+                # write the old table
+                if table_sorting == "tone":
+                    tl_index = write_table(curr_table, sheet_total, tl_index, averaging = False, sorting = "tone") 
+                    tl_index_avg = write_table(curr_table, sheet_average, tl_index_avg, averaging = True, sorting = "tone") 
+                if table_sorting == "word":
+                    tl_index = write_table(curr_table, sheet_total, tl_index, averaging = False, sorting = "word") 
+                    tl_index_avg = write_table(curr_table, sheet_average, tl_index_avg, averaging = True, sorting = "word") 
+
+                assert tl_index_avg == tl_index
             
             # if it is a new participant, make a new sheet
             if participant_list[s] is not curr_participant:
@@ -294,44 +340,72 @@ def MWCM(use_tone= "target", measuring="target", table_sorting = "tone"):
                 tl_index = 0
                 tl_index_avg = 0
 
-            if s is not 0: # if not first line
-
-                if table_sorting == "tone":
-                    tl_index = write_table(curr_table, sheet_total, tl_index, averaging = False, sorting = "tone") # write the old table
-                    tl_index_avg = write_table(curr_table, sheet_average, tl_index_avg, averaging = True, sorting = "tone") # write the old table
-                if table_sorting == "word":
-                    tl_index = write_table(curr_table, sheet_total, tl_index, averaging = False, sorting = "word") # write the old table
-                    tl_index_avg =write_table(curr_table, sheet_average, tl_index_avg, averaging = True, sorting = "word") # write the old table
-
-                assert tl_index_avg == tl_index
-
-                # add word and value to accumulating table for this session
-                if measuring == "target":
-                    value = col_dict["Total MWCM_Starget"][s+1]
-                elif (measuring == "actual") | (measuring == "production"):
-                    value = col_dict["Total MWCM_Sactual"][s+1] # should be +1?
-                curr_table.add_word(Word(col_dict,s,tone=use_tone),value)
-
+            # make new table for new session
             curr_sesh = session_list[s]
             curr_table = Table(curr_sesh)
 
-        else:
-            # add word and value to accumulating table for this session
-            if measuring == "target":
-                value = col_dict["Total MWCM_Starget"][s+1]
-            elif (measuring == "actual") | (measuring == "production"):
-                value = col_dict["Total MWCM_Sactual"][s+1] # should be +1?
-            curr_table.add_word(Word(col_dict,s,tone=use_tone),value)
+        
+        # add word and value to accumulating table for this session
+        if measuring == "target":
+            value = col_dict["Total MWCM_Starget"][s+1]
+        elif (measuring == "actual") | (measuring == "production"):
+            value = col_dict["Total MWCM_Sactual"][s+1] 
+        curr_table.add_word( Word(col_dict,s+1,tone=use_tone), value)
         
         
     # write the last table
     if table_sorting == "tone":
-        write_table(curr_table, sheet_total, tl_index, averaging = False, sorting = "tone") # write the old table
-        write_table(curr_table, sheet_average, tl_index, averaging = True, sorting = "tone") # write the old table
+        write_table(curr_table, sheet_total, tl_index, averaging = False, sorting = "tone")
+        write_table(curr_table, sheet_average, tl_index, averaging = True, sorting = "tone")
     if table_sorting == "word":
-        write_table(curr_table, sheet_total, tl_index, averaging = False, sorting = "word") # write the old table
-        write_table(curr_table, sheet_average, tl_index, averaging = True, sorting = "word") # write the old table
+        write_table(curr_table, sheet_total, tl_index, averaging = False, sorting = "word") 
+        write_table(curr_table, sheet_average, tl_index, averaging = True, sorting = "word") 
     
+    # write the excel file
+    if table_sorting == "tone": 
+        if (use_tone == "target") & (measuring == "target"):
+            wb.save('../output/MWCM_Starget_ToneCategory.xls')
+        elif (use_tone == "target") & (measuring == "actual"):
+            wb.save('../output/MWCM_Sactual_ToneCategory.xls')
+
+    if table_sorting == "word": 
+        if (use_tone == "target") & (measuring == "target"):
+            wb.save('../output/MWCM_Starget_WordType.xls')
+        elif (use_tone == "target") & (measuring == "actual"):
+            wb.save('../output/MWCM_Sactual_WordType.xls')
+
+def generate_table(use_session_list,sheet_name='gen_table', col_name = "Total MWCM_Starget", use_tone="target"):
+
+    col_dict = ColumnDictionary('../output/Coding_output_words.xls')
+    session_list = col_dict["Session"][1:]
+    wb_tone = xlwt.Workbook()
+    wb_word = xlwt.Workbook()
+
+    #  make a new sheet
+    sheet_total_tone = wb_tone.add_sheet(sheet_name + '_total')
+    sheet_average_tone = wb_tone.add_sheet(sheet_name + '_average')
+
+    sheet_total_word = wb_word.add_sheet(sheet_name + '_total')
+    sheet_average_word = wb_word.add_sheet(sheet_name + '_average')
+
+    # make new table for new session
+    table = Table('table')
+
+    for s in session_list:
+        if s in use_session_list:
+
+            # add word and value to accumulating table for this session
+            value = col_dict[col_name][s+1]
+            table.add_word( Word(col_dict,s+1,tone=use_tone), value)
+
+    # write the last table
+    write_table(table, sheet_total_tone, 0, averaging = False, sorting = "tone")
+    write_table(table, sheet_average_tone, 0, averaging = True, sorting = "tone")
+    write_table(table, sheet_total_word, 0, averaging = False, sorting = "word") 
+    write_table(table, sheet_average_word, 0, averaging = True, sorting = "word") 
+
+    # TODO cleanup excel write
+# write the excel file
     if table_sorting == "tone": 
         if (use_tone == "target") & (measuring == "target"):
             wb.save('../output/MWCM_Starget_ToneCategory.xls')
@@ -350,12 +424,14 @@ if __name__ == "__main__":
     MWCM(use_tone="target",measuring="actual", table_sorting="tone")
     MWCM(use_tone="target",measuring="target", table_sorting="tone")
 
-    #print 'MWCM word tables'
+    print 'MWCM word tables'
     MWCM(use_tone="target",measuring="actual",table_sorting="word")
     MWCM(use_tone="target",measuring="target",table_sorting="word")
 
-    #print 'Performing frequency analysis'
-    F_tone(use_tone="target")
-    F_tone(use_tone="production")
+    print 'Performing frequency analysis'
+    FrequencyAnalysis(use_tone="target", table_sorting = "tone")
+    FrequencyAnalysis(use_tone="production", table_sorting = "tone")
+    FrequencyAnalysis(use_tone="target", table_sorting = "word")
+    FrequencyAnalysis(use_tone="production", table_sorting = "word")
                 
 

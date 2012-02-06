@@ -13,9 +13,11 @@ word_pattern = re.compile(word_re, re.UNICODE)
 
 with codecs.open('../data/vowels',encoding='utf-8') as vowel_file:
     vowels = vowel_file.readline().split(',')
+    vowels.append(u'\u025a')
 
 with codecs.open('../data/mandarin_alphabet',encoding='utf-8') as alpha_file:
     IPA_list = alpha_file.readline().split(',')
+    IPA_list.append(u'\u025a')
     
 with codecs.open('../data/consonants',encoding='utf-8') as consonant_file:
     consonants = consonant_file.readline().split(',')
@@ -188,7 +190,7 @@ def find_segments(word,alpha_list,row):
     '''
      
     find_segments parses a word into IPA phonetic segments according to the valid 
-    segments listed in the alpha_list. The segments are appended to the list 'segments' and returned.
+    segments listed in the alpha_list. 
     
     ''' 
     lind = 0
@@ -223,12 +225,13 @@ def find_segments(word,alpha_list,row):
         
     return segments
 
-def find_split_indices(list):
+def find_split_indices(utterance):
+    utter_list = re.findall(re.compile(split_re+'|'+word_re,re.UNICODE),utterance)
     split_index_list = []
-    for i in range(len(list)):
-        if '/' in list[i]: 
+    for i in range(len(utter_list)):
+        if '/' in utter_list[i]: 
             split_index_list.append(i)
-    return split_index_list
+    return split_index_list, utter_list
 
 # returns a list of the combinations of options from splits ("/") 
 def get_combinations(split_utterance_target,split_indxs):
@@ -245,10 +248,9 @@ def create_split_options(utterance):
     from an utterance with splits ('/'), return a list of target utterance options 
     as a list of lists.
 
-    ex: utterance = '[one][two/three]', returns [['[one]','[two]'],['[one]','[three]']]
+    ex: utterance = '[one][two]/[three]', returns [['[one]','[two]'],['[one]','[three]']]
     '''
-    utterance_list = re.findall(re.compile(split_re+'|'+word_re,re.UNICODE),utterance)
-    split_indxs = find_split_indices(utterance_list)
+    split_indxs, utterance_list = find_split_indices(utterance)
     options = []
     if len(split_indxs) > 0:
         # find all permutations of the splits
@@ -314,7 +316,7 @@ def coding():
             split_utterance_tones_target = re.findall(re.compile(split_re+'|'+word_re,re.UNICODE),tone_targets[r])
             split_utterance_segments_target = re.findall(re.compile(split_re+'|'+word_re,re.UNICODE),segment_targets[r])
 
-            tone_split_indxs = find_split_indices(split_utterance_tones_target)
+            tone_split_indxs, _ = find_split_indices(tone_targets[r])
             if len(tone_split_indxs) > 0:
                 tone_comb_list = get_combinations(split_utterance_tones_target,tone_split_indxs)
                 for comb in tone_comb_list:
@@ -335,7 +337,7 @@ def coding():
                     if (seg_acc >= np.array(segment_accuracy[r])).all():
                         segment_accuracy[r] = seg_acc
                     
-            segment_split_indxs = find_split_indices(split_utterance_segments_target)
+            segment_split_indxs, _ = find_split_indices(segment_targets[r])
             if len(segment_split_indxs) > 0:
                 segment_comb_list = get_combinations(split_utterance_segments_target,segment_split_indxs)
                 for comb in segment_comb_list:

@@ -6,7 +6,7 @@ import re
 import xlrd
 import xlwt
 import coding
-
+import sys
 
 def measure_word_complexity(syl_struct,word,tone):
     ''' Perform word complexity measure for syllable structure, word segments, and tone '''
@@ -64,7 +64,7 @@ def measure_word_complexity(syl_struct,word,tone):
     elif syl_struct.count('VV') > 0:
         WCM_S[7] += syl_struct.count('VV')
 
-    rv = coding.vowels[0] # rhotic vowel should be first in vowel list
+    rv = u'\u025a' # coding.vowels[0] # rhotic vowel should be first in vowel list
     WCM_S[9] = segments.count(rv)
     
     # total the segment score
@@ -140,11 +140,6 @@ def MWCM_coding():
     
     n_rows = len(tones_target)
     
-    # create regular expression patterns 
-    word_re = '\[[^\[]*]'
-    split_re = word_re + '/' + word_re
-    word_pattern = re.compile(word_re, re.UNICODE)
-    
     # initialize output lists, which will be the length of the total number of words
     # rather than the number of utterances
     out_participants = []
@@ -171,7 +166,7 @@ def MWCM_coding():
     WCM_T_target = []
     WCM_T_actual = []
     
-    
+    word_pattern = coding.word_pattern
     # iterate through each utterance    
     for r in range(1,n_rows):
         utterance_orthogs = re.findall(word_pattern, orthogs[r])
@@ -189,9 +184,11 @@ def MWCM_coding():
     
         if not (len(utterance_tones_target) == len(utterance_tones_actual) == \
                 len(utterance_segments_target) ==  len(utterance_segments_actual)):
+
             segment_target_options = coding.create_split_options(segments_target[r])
+            split_indxs,split_segtarg_utter_list = coding.find_split_indices(segments_target[r]) # find splits to write later
         
-        for w in range(n_words):
+        for w in xrange(n_words):
             
             try:
             
@@ -207,7 +204,7 @@ def MWCM_coding():
                 # split the words into separate elements for each row
                 # print 'row: ', r+1, ' word: ', w+1
                 out_orthogs.append(utterance_orthogs[w])
-                out_segments_target.append(utterance_segments_target[w])
+               
                 out_segments_actual.append(utterance_segments_actual[w])
                 out_tone_target.append(utterance_tones_target[w])
                 out_tone_actual.append(utterance_tones_actual[w])
@@ -222,13 +219,18 @@ def MWCM_coding():
 
                 if len(utterance_tones_target) == len(utterance_tones_actual) == \
                    len(utterance_segments_target) ==  len(utterance_segments_actual):
+                    
+                    out_segments_target.append(utterance_segments_target[w])
                     wcm_single(WCM_S_target,WCM_S_target_total,WCM_T_target,utterance_syllable_struct_target[w],
                                                         utterance_segments_target[w], utterance_tones_target[w])
+
                 else:
                     # segment_target_options defined above
                     # take the max of the word complexities for the target
+                    out_segments_target.append(split_segtarg_utter_list[w])
+
                     wcm_multi(WCM_S_target,WCM_S_target_total,WCM_T_target,utterance_syllable_struct_target[w],
-                                                        utterance_tones_target[w], segment_target_options, w)             
+                                                        utterance_tones_target[w], segment_target_options, w)
 
             except Exception as e: 
                 print 'Error in row ',r+1,' word ', w+1
@@ -243,37 +245,36 @@ def MWCM_coding():
     sheet1 = export_wb.add_sheet("word coding")
     n_words_uttered = len(out_orthogs)
 
-    for w in xrange(1, n_words_uttered): # TODO should be n_words +1?
-        
-        sheet1.write(w,0,out_participants[w])
-        sheet1.write(w,1,out_sessions[w])
-        sheet1.write(w,2,out_orthogs[w])
-        sheet1.write(w,3,out_segments_target[w])
-        sheet1.write(w,4,out_segments_actual[w])
-        sheet1.write(w,5,out_tone_target[w])
-        sheet1.write(w,6,out_tone_actual[w])
-        sheet1.write(w,7,out_notes[w])
-        sheet1.write(w,8,out_I[w])
-        sheet1.write(w,9,out_J[w])
-        sheet1.write(w,10,out_K[w])
-        sheet1.write(w,11,(str(out_segment_accuracy[w]).replace(' ','][')).replace('[]','')) # TODO need?
-        sheet1.write(w,12,(str(out_tone_accuracy[w]).replace(' ','][')).replace('[]',''))
-        sheet1.write(w,13,str(out_length[w]))
-        sheet1.write(w,14,str(out_position[w]))
-        sheet1.write(w,15,((str(out_syllable_struct_target[w]).replace('\'','')).replace(', ','][')).replace('[]',''))
-        sheet1.write(w,16,((str(out_syllable_struct_actual[w]).replace('\'','')).replace(', ','][')).replace('[]',''))
+    for w in xrange(0, n_words_uttered): # TODO should be n_words +1?
+        sheet1.write(w+1,0,out_participants[w])
+        sheet1.write(w+1,1,out_sessions[w])
+        sheet1.write(w+1,2,out_orthogs[w])
+        sheet1.write(w+1,3,out_segments_target[w])
+        sheet1.write(w+1,4,out_segments_actual[w])
+        sheet1.write(w+1,5,out_tone_target[w])
+        sheet1.write(w+1,6,out_tone_actual[w])
+        sheet1.write(w+1,7,out_notes[w])
+        sheet1.write(w+1,8,out_I[w])
+        sheet1.write(w+1,9,out_J[w])
+        sheet1.write(w+1,10,out_K[w])
+        sheet1.write(w+1,11,(str(out_segment_accuracy[w]).replace(' ','][')).replace('[]','')) # TODO need?
+        sheet1.write(w+1,12,(str(out_tone_accuracy[w]).replace(' ','][')).replace('[]',''))
+        sheet1.write(w+1,13,str(out_length[w]))
+        sheet1.write(w+1,14,str(out_position[w]))
+        sheet1.write(w+1,15,((str(out_syllable_struct_target[w]).replace('\'','')).replace(', ','][')).replace('[]',''))
+        sheet1.write(w+1,16,((str(out_syllable_struct_actual[w]).replace('\'','')).replace(', ','][')).replace('[]',''))
         
         # for the 10 params, write WCM_S_target
         for i in xrange(10):
-            sheet1.write(w,17+i,str(WCM_S_target[i][w]))
-        sheet1.write(w,27,str(WCM_S_target_total[w]))
+            sheet1.write(w+1,17+i,str(WCM_S_target[i][w]))
+        sheet1.write(w+1,27,str(WCM_S_target_total[w]))
         
         for i in xrange(10):
-            sheet1.write(w,28+i,str(WCM_S_actual[i][w]))
-        sheet1.write(w,38,str(WCM_S_actual_total[w]))
+            sheet1.write(w+1,28+i,str(WCM_S_actual[i][w]))
+        sheet1.write(w+1,38,str(WCM_S_actual_total[w]))
         
-        sheet1.write(w,39,str(WCM_T_target[w]))
-        sheet1.write(w,40,str(WCM_T_actual[w]))  
+        sheet1.write(w+1,39,str(WCM_T_target[w]))
+        sheet1.write(w+1,40,str(WCM_T_actual[w]))  
     
     # write titles on first line
     sheet1.write(0,0,participants[0])
@@ -308,6 +309,20 @@ def MWCM_coding():
         
     export_wb.save('../output/Coding_output_words.xls')
 
+def test_rhotic():
+    wb = xlrd.open_workbook('../data/rhotic_test.xls') 
+    sh = wb.sheet_by_index(0)
+    
+    # store all columns for processing or writing to xls file later    
+    segments_target = sh.col_values(3)
+    segments_actual = sh.col_values(4)
+    n_rows = len(segments_actual)
+    
+    rhotic_vowel = u'\u025a' #coding.vowels[0] 
+    print 'rhotic vowel: ', rhotic_vowel
+    for i in xrange(n_rows):
+        assert rhotic_vowel in segments_target[i]
+        assert not (rhotic_vowel in segments_actual[i])
 def main():
     MWCM_coding()
     
