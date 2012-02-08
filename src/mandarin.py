@@ -182,8 +182,6 @@ def write_table(table, sheet, tl_index, averaging = True, sorting = "tone", col_
 
     for t in xrange(num_rows): # for all words/tones
         
-        word = word_list[t]
-
         if sorting == "tone":
             if t < 4:
                 sheet.write(tl_index + 3 + t, 0, "Tone "+str(t+1))
@@ -200,8 +198,8 @@ def write_table(table, sheet, tl_index, averaging = True, sorting = "tone", col_
 
             pk = pos_keys[n]
             if sorting == "word":
-                if table.word_dict.has_key(word):
-                    out = table.word_dict[word].get(pk)
+                if table.word_dict.has_key(word_list[t]):
+                    out = table.word_dict[word_list[t]].get(pk)
                     if out is None: out = (0,0)
                 else:
                     out = (0,0)
