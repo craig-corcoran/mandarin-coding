@@ -14,7 +14,6 @@ class Word(object):
 
     def __init__(self, col_dict, row, tone="target"):
         
-    
         self.participant = col_dict["Participant"]
         self.session = col_dict["Session"]
             
@@ -40,7 +39,6 @@ class Word(object):
         # Tone 4: Fall
         elif (tone_list[1:3] == 'FH') | (tone_list[1:3] == 'FM'):
             self.tone_number = 4 
-
         else:
             self.tone_number = 5
          
@@ -95,41 +93,45 @@ class Table(object):
     def add_word(self,word, value):
         ''' update the table with the given word '''
         #print 'adding a word to a table'
-        if word.tone_number < 5: # ignore tone 5 
             
-            # initialize position dictionary
-            if not self.word_dict.has_key(word.orthography):
-                self.word_dict[word.orthography] = dict(zip(pos_keys,[(0,0)]*len(pos_keys))) 
+        # initialize position dictionary
+        if not self.word_dict.has_key(word.orthography):
+            self.word_dict[word.orthography] = dict(zip(pos_keys,[(0,0)]*len(pos_keys))) 
     
-            if not self.tone_dict.has_key(word.tone_number):
-                self.tone_dict[word.tone_number] = dict(zip(pos_keys,[(0,0)]*len(pos_keys)))
+        if not self.tone_dict.has_key(word.tone_number):
+            self.tone_dict[word.tone_number] = dict(zip(pos_keys,[(0,0)]*len(pos_keys)))
     
-            length = word.length # length of the utterance the word appears in
-            if int(length) > 4:
-                length = 4
-            pos_key = str(length)+str(word.position)
+        length = word.length # length of the utterance the word appears in
+        if int(length) > 4:
+            length = 4
+        pos_key = str(length)+str(word.position)
 
-            if value < 1e-5: value = 0
+        if value < 1e-5: value = 0
             
-            if not self.word_dict[word.orthography].has_key(pos_key):
-                self.word_dict[word.orthography][pos_key] = (float(value),1)
-            else:
-                pair =  copy.deepcopy(self.word_dict[word.orthography][pos_key])
-                val = float(pair[0])+float(value)
-                if val  < 1e-5: val = 0
-                self.word_dict[word.orthography][pos_key] = (val, int(pair[1])+1)
+        if not self.word_dict[word.orthography].has_key(pos_key):
+            self.word_dict[word.orthography][pos_key] = (float(value),1)
+        else:
+            pair =  copy.deepcopy(self.word_dict[word.orthography][pos_key])
+            val = float(pair[0])+float(value)
+            if val  < 1e-5: val = 0
+            self.word_dict[word.orthography][pos_key] = (val, int(pair[1])+1)
 
-            if not self.tone_dict[word.tone_number].has_key(pos_key):
-                self.tone_dict[word.tone_number][pos_key] = (float(value),1)
-            
-            else:
-                pair = copy.deepcopy(self.tone_dict[word.tone_number][pos_key])
-                val = float(pair[0])+float(value)
-                if val  < 1e-5: val = 0
-                self.tone_dict[word.tone_number][pos_key] = (val, int(pair[1])+1)
+        if not self.tone_dict[word.tone_number].has_key(pos_key):
+            self.tone_dict[word.tone_number][pos_key] = (float(value),1)
+         
+        else:
+            pair = copy.deepcopy(self.tone_dict[word.tone_number][pos_key])
+            val = float(pair[0])+float(value)
+            if val  < 1e-5: val = 0
+            self.tone_dict[word.tone_number][pos_key] = (val, int(pair[1])+1)
 
+        # don't count the values from words with unknown tone, but keep in table
+        if word.tone_number > 4:
+            self.tone_dict[word.tone_number][pos_key] = (0,0)
+            self.word_dict[word.orthography][pos_key] = (0,0)
+        
 
-def write_table(table, sheet, tl_index, averaging = True, sorting = "tone"):
+def write_table(table, sheet, tl_index, averaging = True, sorting = "tone", col_dict = None):
     num_tones = 4 #len(table.tone_dict.keys())
     # total number of words across all tones
     
@@ -180,6 +182,7 @@ def write_table(table, sheet, tl_index, averaging = True, sorting = "tone"):
 
     for t in xrange(num_rows): # for all words/tones
         
+        word = word_list[t]
 
         if sorting == "tone":
             if t < 4:
@@ -197,8 +200,8 @@ def write_table(table, sheet, tl_index, averaging = True, sorting = "tone"):
 
             pk = pos_keys[n]
             if sorting == "word":
-                if table.word_dict.has_key(word_list[t]):
-                    out = table.word_dict[word_list[t]].get(pk)
+                if table.word_dict.has_key(word):
+                    out = table.word_dict[word].get(pk)
                     if out is None: out = (0,0)
                 else:
                     out = (0,0)
@@ -214,16 +217,16 @@ def write_table(table, sheet, tl_index, averaging = True, sorting = "tone"):
             #print value, count
             value = float(value)
             count = int(count)
+                
+            row_count += count
+            row_total += value # accumulate word total
+            col_count[pk] += count
+            col_total[pk] += value #  accumulated column (pos) total
 
             # write the value of this word in this position
             if averaging & (count != 0):
                 value = value/count
             sheet.write(tl_index + t + 3, n+1, value) 
-            
-            row_count += count
-            row_total += value # accumulate word total
-            col_count[pk] += count
-            col_total[pk] += value #  accumulated column (pos) total
 
         # write the row total for the word
         if averaging & (row_count != 0):
@@ -298,7 +301,6 @@ def FrequencyAnalysis(use_tone= "target", table_sorting = "tone"):
 
 def MWCM(use_tone= "target", measuring="target", table_sorting = "tone"):
     
-    ''' TODO add words and write tables separately'''
     
     # to be analysis code
     #col_dict = ColumnDictionary('../output/Coding_output_words_test.xls')
@@ -421,17 +423,17 @@ def generate_table(use_session_list,sheet_name='gen_table', col_name = "Total MW
 if __name__ == "__main__":
 
     print 'MWCM value tables'
-    MWCM(use_tone="target",measuring="actual", table_sorting="tone")
-    MWCM(use_tone="target",measuring="target", table_sorting="tone")
+    #tMWCM(use_tone="target",measuring="actual", table_sorting="tone")
+    #MWCM(use_tone="target",measuring="target", table_sorting="tone")
 
     print 'MWCM word tables'
-    MWCM(use_tone="target",measuring="actual",table_sorting="word")
+    #MWCM(use_tone="target",measuring="actual",table_sorting="word")
     MWCM(use_tone="target",measuring="target",table_sorting="word")
 
     print 'Performing frequency analysis'
-    FrequencyAnalysis(use_tone="target", table_sorting = "tone")
-    FrequencyAnalysis(use_tone="production", table_sorting = "tone")
+    #FrequencyAnalysis(use_tone="target", table_sorting = "tone")
+    #FrequencyAnalysis(use_tone="production", table_sorting = "tone")
     FrequencyAnalysis(use_tone="target", table_sorting = "word")
-    FrequencyAnalysis(use_tone="production", table_sorting = "word")
+    #FrequencyAnalysis(use_tone="production", table_sorting = "word")
                 
 
