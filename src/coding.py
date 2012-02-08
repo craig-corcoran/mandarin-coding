@@ -58,7 +58,7 @@ def code_syllable_structure(segments):
             syllable_structure += 'T'
         elif segments[i] in dipthongs:
             syllable_structure += 'D'
-        elif segments[i] == vowels[0]: # if a rhotic vowel
+        elif (segments[i] == vowels[0]) | (segments[i] == u'\u025a'): # if a rhotic vowel
             syllable_structure += 'R'
         elif segments[i] in vowels:
             syllable_structure += 'V'
