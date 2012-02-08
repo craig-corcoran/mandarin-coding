@@ -423,17 +423,17 @@ def generate_table(use_session_list,sheet_name='gen_table', col_name = "Total MW
 if __name__ == "__main__":
 
     print 'MWCM value tables'
-    #tMWCM(use_tone="target",measuring="actual", table_sorting="tone")
-    #MWCM(use_tone="target",measuring="target", table_sorting="tone")
+    MWCM(use_tone="target",measuring="actual", table_sorting="tone")
+    MWCM(use_tone="target",measuring="target", table_sorting="tone")
 
     print 'MWCM word tables'
-    #MWCM(use_tone="target",measuring="actual",table_sorting="word")
+    MWCM(use_tone="target",measuring="actual",table_sorting="word")
     MWCM(use_tone="target",measuring="target",table_sorting="word")
 
     print 'Performing frequency analysis'
-    #FrequencyAnalysis(use_tone="target", table_sorting = "tone")
-    #FrequencyAnalysis(use_tone="production", table_sorting = "tone")
+    FrequencyAnalysis(use_tone="target", table_sorting = "tone")
+    FrequencyAnalysis(use_tone="production", table_sorting = "tone")
     FrequencyAnalysis(use_tone="target", table_sorting = "word")
-    #FrequencyAnalysis(use_tone="production", table_sorting = "word")
+    FrequencyAnalysis(use_tone="production", table_sorting = "word")
                 
 
