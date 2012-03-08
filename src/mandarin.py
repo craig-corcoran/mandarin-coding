@@ -74,8 +74,8 @@ class ColumnDictionary(object):
 
     def __getitem__(self, column_name):
         
-        col_ind = self.keys.index(column_name)
-        return self.sh.col_values(col_ind)
+        ind = self.keys.index(column_name)
+        return self.sh.col_values(ind)
 
 class Table(object):
     ''' consists of two dictionaries for sorting by tone and by word. '''
@@ -299,8 +299,6 @@ def FrequencyAnalysis(use_tone= "target", table_sorting = "tone"):
 
 def MWCM(use_tone= "target", measuring="target", table_sorting = "tone"):
     
-    
-    # to be analysis code
     #col_dict = ColumnDictionary('../output/Coding_output_words_test.xls')
     col_dict = ColumnDictionary('../output/Coding_output_words.xls')
     participant_list = col_dict["Participant"][1:]
@@ -374,49 +372,55 @@ def MWCM(use_tone= "target", measuring="target", table_sorting = "tone"):
         elif (use_tone == "target") & (measuring == "actual"):
             wb.save('../output/MWCM_Sactual_WordType.xls')
 
-def generate_table(use_session_list,sheet_name='gen_table', col_name = "Total MWCM_Starget", use_tone="target"):
+
+def generate_table(spec_path):
+    # TODO currently does not support frequency analysis
+
+    with open(spec_path) as spec_file:
+        lines = spec_file.readlines()
+
+    # split the specs 
+    specs = lines[0][:-1]
+    specs = specs.split(', ')
+    (out_file_name, sheet_name, col_name, use_tone) = specs
+
+    # remove newlines
+    use_session_list = lines[1:]
+    for i in xrange(len(use_session_list)):
+        use_session_list[i] = use_session_list[i][:-1]
 
     col_dict = ColumnDictionary('../output/Coding_output_words.xls')
     session_list = col_dict["Session"][1:]
     wb_tone = xlwt.Workbook()
     wb_word = xlwt.Workbook()
 
-    #  make a new sheet
     sheet_total_tone = wb_tone.add_sheet(sheet_name + '_total')
     sheet_average_tone = wb_tone.add_sheet(sheet_name + '_average')
 
     sheet_total_word = wb_word.add_sheet(sheet_name + '_total')
     sheet_average_word = wb_word.add_sheet(sheet_name + '_average')
 
-    # make new table for new session
-    table = Table('table')
+    table = Table(out_file_name)
 
-    for s in session_list:
-        if s in use_session_list:
+    for s in xrange(len(session_list)):
+        if session_list[s] in use_session_list:
 
             # add word and value to accumulating table for this session
             value = col_dict[col_name][s+1]
+            if 'Accuracy' in col_name:
+                value = value[1:-1] # TODO standardize accuracy encoding (in coding_output_words?)
             table.add_word( Word(col_dict,s+1,tone=use_tone), value)
 
-    # write the last table
+    # write the table
     write_table(table, sheet_total_tone, 0, averaging = False, sorting = "tone")
     write_table(table, sheet_average_tone, 0, averaging = True, sorting = "tone")
     write_table(table, sheet_total_word, 0, averaging = False, sorting = "word") 
     write_table(table, sheet_average_word, 0, averaging = True, sorting = "word") 
 
-    # TODO cleanup excel write
-# write the excel file
-    if table_sorting == "tone": 
-        if (use_tone == "target") & (measuring == "target"):
-            wb.save('../output/MWCM_Starget_ToneCategory.xls')
-        elif (use_tone == "target") & (measuring == "actual"):
-            wb.save('../output/MWCM_Sactual_ToneCategory.xls')
+    # write the excel file - remove white spaces from file name
+    wb_tone.save(('../output/' + out_file_name + col_name + 'ToneCategory.xls').replace(' ',''))
+    wb_word.save(('../output/' + out_file_name + col_name + 'WordType.xls').replace(' ',''))
 
-    if table_sorting == "word": 
-        if (use_tone == "target") & (measuring == "target"):
-            wb.save('../output/MWCM_Starget_WordType.xls')
-        elif (use_tone == "target") & (measuring == "actual"):
-            wb.save('../output/MWCM_Sactual_WordType.xls')
 
 if __name__ == "__main__":
 
