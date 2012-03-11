@@ -186,7 +186,7 @@ def code_utterance(utterance_tones_target,utterance_tones_actual,
     
     return n_words, word_position, syllable_structure_target, syllable_structure_actual, segment_accuracy, tone_accuracy
 
-def find_segments(word,alpha_list,row):
+def find_segments(word,alpha_list,row=-1):
     '''
      
     find_segments parses a word into IPA phonetic segments according to the valid 
